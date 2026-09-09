@@ -1,0 +1,56 @@
+services:
+  proxy:
+    image: nginx:alpine
+    ports:
+      - "8000:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - account-manager
+      - transaction-ledger
+
+  account-manager:
+    container_name: account-manager
+    build:                       
+      context: ./accounts
+      dockerfile: Dockerfile 
+    env_file: ./accounts/.env
+    depends_on:
+      - accounts-postgres
+
+  transaction-ledger:
+    container_name: transaction-ledger
+    build:                       
+      context: ./transactions
+      dockerfile: Dockerfile 
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@transactions-postgres:5432/transactions_db
+    depends_on:
+      - transactions-postgres
+
+  accounts-postgres:
+    container_name: accounts-postgres
+    image: postgres:16
+    ports:
+      - '${ACCOUNTS_DATABASE_PORT}:5432'
+    volumes:
+      - accounts-postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=${ACCOUNTS_DATABASE_PASSWORD}
+      - POSTGRES_DB=${ACCOUNTS_DATABASE_NAME}
+
+  transactions-postgres:
+    container_name: transactions-postgres
+    image: postgres:16
+    ports:
+      - '${TRANSACTIONS_DATABASE_PORT}:5432'
+    volumes:
+      - transactions-postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=${TRANSACTIONS_DATABASE_PASSWORD}
+      - POSTGRES_DB=${TRANSACTIONS_DATABASE_NAME}
+
+
+volumes:
+  transactions-postgres: {}
+  accounts-postgres: {}
