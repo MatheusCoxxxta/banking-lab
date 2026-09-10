@@ -43,6 +43,12 @@ Em transaction: dispara eventos e registra na tabela outbox/events como sent
 
 ## Desafios mapeados, pensados, mas ainda não desenhados:
 
+- Separar transaction de ledger
+
+- Criar servico de extrato
+
+- Adicionar SOT de limit ao ledger
+
 - Transação entre instituições: crédito em conta da nossa instituição, débito em conta de outra instituição.
 
 Para esse caso, provavelmente usaremos conta de settlement, que vai ser a perna de débito da nossa operação, mantendo soma zero nas entries. Saldo da conta de settlement vai ser negativo, permitindo conciliar a quantidade de dinheiro que saiu da conta de settlement.
