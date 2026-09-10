@@ -47,6 +47,35 @@ Em transaction: dispara eventos e registra na tabela outbox/events como sent
 
 Para esse caso, provavelmente usaremos conta de settlement, que vai ser a perna de débito da nossa operação, mantendo soma zero nas entries. Saldo da conta de settlement vai ser negativo, permitindo conciliar a quantidade de dinheiro que saiu da conta de settlement.
 
+### 0003. Consumer para receive, receberá comunicações do BACEN
+
+Consumiremos as mensagens enviadas pelo BACEN comunicando recebimento de PIX.
+
+Não entendo muito dessa parte do BACEN, então gerei um passo a passo com Claude do que seria o caminho mínimo para entregar/receber mensagem:
+
+1. Caso pacs.008:
+- SPI comunica pacs.008
+- Validamos a conta
+- Respondemos pacs.002 com aceite/rejeição
+
+2. Caso pacs.002:
+- SPI comunica pacs.002
+- Double entry + evento update saldo
+
+### 0004. API /send, lidar com transações interbancos (SPI BACEN)
+
+- Double entry atômico + evento update saldo como temos em POST /money/transfer, seguido de mensagem para BACEN.
+
+- API DICT - Resolução da conta caso PIX e não tenhamos as informações da conta destino, escrever mock (baseado em [DICT API DOC](https://www.bcb.gov.br/content/estabilidadefinanceira/pix/API-DICT.html)) parece ok para simular em camada caixa preta
+
+- marshal pacs.008 (encoding/xml)
+- gerar structs do XSD (xuri/xgen)
+- assinar (XMLDSig enveloped) - goxmldsig
+- carregar cert ICP-Brasil (sslmate go-pkcs12 + crypto/x509) - *escrever mock parece ok para simular em camada caixa preta*
+- mTLS + entrega (crypto/tls + net/http) - *escrever mock parece ok para simular em camada caixa preta*
+- validar contra XSD (opcional) - lestrrat-go/libxml2
+
+
 ## Rodando em ambiente local
 
 Em ambiente local estou usando docker-compose para orquestrar os containers, e Nginx para redirecionar as requisições para os serviços corretos baseado no path. A ideia é emular o que eu teria com ECS + ALB para redirect para target groups.

@@ -70,7 +70,7 @@ var ReceiverNotFoundError = errors.New("Receiver account not found")
 var SenderNotFoundError = errors.New("Sender account not found")
 var InsufficientBalanceError = errors.New("Insufficient balance to perform this transaction")
 
-func (s *Store) sendMoneyUsecase(ctx context.Context, dto SendMoneyDto) error {
+func (s *Store) transferMoneyUsecase(ctx context.Context, dto SendMoneyDto) error {
 	sender, err := s.Queries.findAccountById(ctx, pgtype.UUID{Bytes: dto.SenderId, Valid: true})
 
 	if err != nil {
@@ -168,7 +168,7 @@ func (s *Store) sendMoneyUsecase(ctx context.Context, dto SendMoneyDto) error {
 	return nil
 }
 
-func (s *Store) handleSendMoney(w http.ResponseWriter, r *http.Request) {
+func (s *Store) handleTransferMoney(w http.ResponseWriter, r *http.Request) {
 	data, err := DecodeAndValidate[SendMoneyDto](r)
 
 	w.Header().Set("Content-Type", "application/json")
@@ -180,7 +180,7 @@ func (s *Store) handleSendMoney(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := context.Background()
-	err = s.sendMoneyUsecase(ctx, data)
+	err = s.transferMoneyUsecase(ctx, data)
 
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
@@ -231,7 +231,7 @@ func main() {
 
 	r.Get("/health", handleHealth)
 	r.Get("/money/health", handleHealth)
-	r.Post("/money/send", s.handleSendMoney)
+	r.Post("/money/transfer", s.handleTransferMoney)
 
 	log.Fatal(http.ListenAndServe(":"+PORT, r))
 }
