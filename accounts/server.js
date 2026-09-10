@@ -4,10 +4,8 @@ const express = require("express");
 const { ZodError } = require("zod");
 const healthController = require("./src/controllers/healthController");
 const accountController = require("./src/controllers/accountController");
-const transactionController = require("./src/controllers/transactionController");
 const AppError = require("./src/errors/AppError");
 const ValidationError = require("./src/errors/ValidationError");
-const DuplicateTransactionError = require("./src/errors/DuplicateTransactionError");
 const InvalidAccountIdError = require("./src/errors/InvalidAccountIdError");
 
 const app = express();
@@ -17,7 +15,6 @@ app.use(express.json());
 app.get("/health", healthController.health);
 app.post("/accounts", accountController.createAccount);
 app.patch("/accounts/:id/deactivate", accountController.deactivateAccount);
-app.post("/money/send", transactionController.send);
 
 app.use((err, req, res, next) => {
     if (err instanceof ZodError) {
@@ -25,10 +22,6 @@ app.use((err, req, res, next) => {
         return res.status(e.status).json({ message: e.message, errors: e.errors });
     }
     if (err instanceof AppError) return res.status(err.status).json({ message: err.message });
-    if (err.code === "23505" && err.constraint === "transactions_idempotency_key_key") {
-        const e = new DuplicateTransactionError();
-        return res.status(e.status).json({ message: e.message });
-    }
     if (err.code === "22P02") {
         console.error(err);
         const e = new InvalidAccountIdError();
