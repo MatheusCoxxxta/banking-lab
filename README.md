@@ -1,5 +1,9 @@
 # Banking
 
+Laboratório de core banking distribuído: double-entry ledger, microserviços de contas e transações, consistência forte no ledger e projeção eventual via eventos.
+
+## Motivação
+
 Peguei tudo que fiz no ledger-lab Node e no ledger-lab Go, centralizei aqui, e vou usar para dar uma aprofundada.
 
 Como a versão Node implementava tanto transações quanto gestão de contas, descontinuei transações, que reescrevi em Go.
