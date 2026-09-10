@@ -45,7 +45,8 @@ CREATE TABLE public.accounts (
     balance bigint DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    deactivated_at timestamp with time zone
+    deactivated_at timestamp with time zone,
+    type text NOT NULL -- PJ, PF, ST
 );
 
 

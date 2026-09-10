@@ -16,6 +16,7 @@ type Account struct {
 	CreatedAt     pgtype.Timestamptz
 	UpdatedAt     pgtype.Timestamptz
 	DeactivatedAt pgtype.Timestamptz
+	Type          string
 }
 
 type Entry struct {

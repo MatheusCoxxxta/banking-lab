@@ -12,7 +12,7 @@ import (
 )
 
 const findAccountById = `-- name: findAccountById :one
-SELECT id, name, currency, balance, created_at, updated_at, deactivated_at FROM accounts WHERE id = $1
+SELECT id, name, currency, balance, created_at, updated_at, deactivated_at, type FROM accounts WHERE id = $1
 `
 
 func (q *Queries) findAccountById(ctx context.Context, id pgtype.UUID) (Account, error) {
@@ -26,12 +26,13 @@ func (q *Queries) findAccountById(ctx context.Context, id pgtype.UUID) (Account,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeactivatedAt,
+		&i.Type,
 	)
 	return i, err
 }
 
 const findAccountByIdForUpdate = `-- name: findAccountByIdForUpdate :one
-SELECT id, name, currency, balance, created_at, updated_at, deactivated_at FROM accounts WHERE id = $1 FOR UPDATE
+SELECT id, name, currency, balance, created_at, updated_at, deactivated_at, type FROM accounts WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) findAccountByIdForUpdate(ctx context.Context, id pgtype.UUID) (Account, error) {
@@ -45,6 +46,7 @@ func (q *Queries) findAccountByIdForUpdate(ctx context.Context, id pgtype.UUID) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeactivatedAt,
+		&i.Type,
 	)
 	return i, err
 }
