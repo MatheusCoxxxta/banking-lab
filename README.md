@@ -19,7 +19,7 @@ Como a versão Node implementava tanto transações quanto gestão de contas, de
 
 - Separar transaction de ledger
 
-API de transações, centralizada DICT, chamada ao ledger, disparo ao BACEN (outbox).
+API de transações, centraliza: DICT, chamada ao ledger, disparo ao BACEN (outbox).
 API de registro contábil consistente, lida com double entry e dispara evento de update-balance (outbox)
 
 ## Desafios mapeados, pensados e desenhados:
