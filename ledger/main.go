@@ -244,8 +244,9 @@ func (s *Store) OutboxObserver(ctx context.Context) error {
 
 				s.Publisher.Publish(
 					event.Payload,
-					[]string{"balance.*"},
+					[]string{"balance.updated"},
 					rabbitmq.WithPublishOptionsContentType("application/json"),
+					rabbitmq.WithPublishOptionsExchange("ledger.balance"),
 				)
 
 				err = s.Queries.updateOutboxStatus(ctx, updateOutboxStatusParams{
@@ -342,6 +343,8 @@ func main() {
 		rabbitmq.WithPublisherOptionsLogging,
 		rabbitmq.WithPublisherOptionsExchangeName("ledger.balance"),
 		rabbitmq.WithPublisherOptionsExchangeDeclare,
+		rabbitmq.WithPublisherOptionsExchangeKind("topic"),
+		rabbitmq.WithPublisherOptionsExchangeDurable,
 	)
 
 	if err != nil {

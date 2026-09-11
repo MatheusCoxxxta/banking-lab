@@ -28,8 +28,12 @@ services:
       dockerfile: Dockerfile 
     environment:
       DATABASE_URL: postgres://postgres:postgres@ledger-postgres:5432/ledger_db
+      RABBITMQ_URL: amqp://dev:dev@banking-rabbitmq:5672
     depends_on:
-      - ledger-postgres
+      banking-rabbitmq:
+        condition: service_healthy
+      ledger-postgres:
+        condition: service_healthy
 
   transactions-manager:
     container_name: transactions-manager
@@ -66,6 +70,11 @@ services:
     environment:
       - POSTGRES_PASSWORD=${LEDGER_DATABASE_PASSWORD}
       - POSTGRES_DB=${LEDGER_DATABASE_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${LEDGER_DATABASE_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   transactions-postgres:
     container_name: transactions-postgres
