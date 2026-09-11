@@ -3,19 +3,18 @@ require("dotenv").config();
 const express = require("express");
 const { ZodError } = require("zod");
 const healthController = require("./src/controllers/healthController");
-const accountController = require("./src/controllers/accountController");
+const transactionsController = require("./src/controllers/transactionsController");
 const AppError = require("./src/errors/AppError");
 const ValidationError = require("./src/errors/ValidationError");
-const InvalidAccountIdError = require("./src/errors/InvalidAccountIdError");
+const InvalidTransactionIdError = require("./src/errors/InvalidTransactionIdError");
 
 const app = express();
 
 app.use(express.json());
 
 app.get("/health", healthController.health);
-app.get("/accounts/health", healthController.health);
-app.post("/accounts", accountController.createAccount);
-app.patch("/accounts/:id/deactivate", accountController.deactivateAccount);
+app.get("/transactions/health", healthController.health);
+app.post("/transactions", transactionsController.createTransaction);
 
 app.use((err, req, res, next) => {
     if (err instanceof ZodError) {
@@ -25,7 +24,7 @@ app.use((err, req, res, next) => {
     if (err instanceof AppError) return res.status(err.status).json({ message: err.message });
     if (err.code === "22P02") {
         console.error(err);
-        const e = new InvalidAccountIdError();
+        const e = new InvalidTransactionIdError();
         return res.status(e.status).json({ message: e.message });
     }
     console.error(err);

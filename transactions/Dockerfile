@@ -1,11 +1,11 @@
-FROM golang:1.25-alpine AS build
-WORKDIR /src
-COPY go.mod go.sum ./
-COPY . .
-RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /app .
+FROM node:22-alpine AS deps
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
 
-FROM gcr.io/distroless/static-debian12
-COPY --from=build /app /app
-ENV PORT=3002
-EXPOSE 3002
-ENTRYPOINT ["/app"]
+FROM node:22-alpine AS runner
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+EXPOSE 3000
+CMD ["node", "server.js"]

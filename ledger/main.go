@@ -44,7 +44,7 @@ func DecodeAndValidate[T any](r *http.Request) (T, error) {
 }
 
 /**
-curl -X POST http://localhost:3000/send-money \
+curl -X POST http://localhost:8000/ledger/transfer \
   -H "Content-Type: application/json" \
   -d '{
     "idempotency_key": "0ce51bdf-ed3a-459f-abbb-a8df3f086e4c",
@@ -119,21 +119,21 @@ func (s *Store) transferMoneyUsecase(ctx context.Context, dto SendMoneyDto) erro
 		log.Fatal("Error trying to findAccountByIdForUpdate ", err.Error())
 	}
 
-	transaction, errTransaction := q.insertTransaction(ctx, insertTransactionParams{
+	journal, errJournal := q.insertJournal(ctx, insertJournalParams{
 		IdempotencyKey: dto.IdempotencyKey,
 		AccountID:      lockedSender.ID,
 		Amount:         dto.Amount,
 	})
 
-	if errTransaction != nil {
-		log.Fatal("Error trying to insertTransaction ", errTransaction.Error())
+	if errJournal != nil {
+		log.Fatal("Error trying to insertJournal ", errJournal.Error())
 	}
 
 	_, errDebitEntry := q.insertEntry(ctx, insertEntryParams{
-		AccountID:     lockedSender.ID,
-		TransactionID: transaction.ID,
-		Direction:     "debit",
-		Amount:        dto.Amount,
+		AccountID: lockedSender.ID,
+		JournalID: journal.ID,
+		Direction: "debit",
+		Amount:    dto.Amount,
 	})
 
 	if errDebitEntry != nil {
@@ -141,10 +141,10 @@ func (s *Store) transferMoneyUsecase(ctx context.Context, dto SendMoneyDto) erro
 	}
 
 	_, errCreditEntry := q.insertEntry(ctx, insertEntryParams{
-		AccountID:     lockedReceiver.ID,
-		TransactionID: transaction.ID,
-		Direction:     "credit",
-		Amount:        dto.Amount,
+		AccountID: lockedReceiver.ID,
+		JournalID: journal.ID,
+		Direction: "credit",
+		Amount:    dto.Amount,
 	})
 
 	senderAccountErr := q.updateAccountBalance(ctx, updateAccountBalanceParams{ID: lockedSender.ID, Balance: -int64(dto.Amount)})
@@ -230,8 +230,8 @@ func main() {
 	s := NewStore(pool, q)
 
 	r.Get("/health", handleHealth)
-	r.Get("/money/health", handleHealth)
-	r.Post("/money/transfer", s.handleTransferMoney)
+	r.Get("/ledger/health", handleHealth)
+	r.Post("/ledger/transfer", s.handleTransferMoney)
 
 	log.Fatal(http.ListenAndServe(":"+PORT, r))
 }

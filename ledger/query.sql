@@ -1,10 +1,10 @@
--- name: insertTransaction :one
-INSERT INTO transactions (idempotency_key, account_id, amount)
+-- name: insertJournal :one
+INSERT INTO journal (idempotency_key, account_id, amount)
 VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: insertEntry :one
-INSERT INTO entries (account_id, transaction_id, direction, amount)
+INSERT INTO entries (account_id, journal_id, direction, amount)
 VALUES ($1, $2, $3, $4)
 RETURNING *;
 

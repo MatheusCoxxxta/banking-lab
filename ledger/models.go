@@ -20,15 +20,15 @@ type Account struct {
 }
 
 type Entry struct {
-	ID            pgtype.UUID
-	AccountID     pgtype.UUID
-	TransactionID pgtype.UUID
-	Direction     string
-	Amount        int64
-	CreatedAt     pgtype.Timestamptz
+	ID        pgtype.UUID
+	AccountID pgtype.UUID
+	JournalID pgtype.UUID
+	Direction string
+	Amount    int64
+	CreatedAt pgtype.Timestamptz
 }
 
-type Transaction struct {
+type Journal struct {
 	ID             pgtype.UUID
 	IdempotencyKey string
 	AccountID      pgtype.UUID

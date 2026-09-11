@@ -57,7 +57,7 @@ CREATE TABLE public.accounts (
 CREATE TABLE public.entries (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     account_id uuid NOT NULL,
-    transaction_id uuid,
+    journal_id uuid,
     direction text NOT NULL,
     amount bigint NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
@@ -67,16 +67,16 @@ CREATE TABLE public.entries (
 
 
 --
--- Name: transactions; Type: TABLE; Schema: public; Owner: -
+-- Name: journal; Type: TABLE; Schema: public; Owner: -
 --
 
-CREATE TABLE public.transactions (
+CREATE TABLE public.journal (
     id uuid DEFAULT gen_random_uuid() NOT NULL,
     idempotency_key text NOT NULL,
     account_id uuid NOT NULL,
     amount bigint NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT transactions_amount_check CHECK (((amount)::numeric > (0)::numeric))
+    CONSTRAINT journal_amount_check CHECK (((amount)::numeric > (0)::numeric))
 );
 
 
@@ -97,19 +97,19 @@ ALTER TABLE ONLY public.entries
 
 
 --
--- Name: transactions transactions_idempotency_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: journal journal_idempotency_key_key; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.transactions
-    ADD CONSTRAINT transactions_idempotency_key_key UNIQUE (idempotency_key);
+ALTER TABLE ONLY public.journal
+    ADD CONSTRAINT journal_idempotency_key_key UNIQUE (idempotency_key);
 
 
 --
--- Name: transactions transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: journal journal_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.transactions
-    ADD CONSTRAINT transactions_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.journal
+    ADD CONSTRAINT journal_pkey PRIMARY KEY (id);
 
 
 --
@@ -127,24 +127,24 @@ CREATE INDEX idx_entries_created_at ON public.entries USING btree (created_at);
 
 
 --
--- Name: idx_entries_transaction_id; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_entries_journal_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_entries_transaction_id ON public.entries USING btree (transaction_id);
-
-
---
--- Name: idx_transactions_account_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_transactions_account_id ON public.transactions USING btree (account_id);
+CREATE INDEX idx_entries_journal_id ON public.entries USING btree (journal_id);
 
 
 --
--- Name: idx_transactions_created_at; Type: INDEX; Schema: public; Owner: -
+-- Name: idx_journal_account_id; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX idx_transactions_created_at ON public.transactions USING btree (created_at);
+CREATE INDEX idx_journal_account_id ON public.journal USING btree (account_id);
+
+
+--
+-- Name: idx_journal_created_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_journal_created_at ON public.journal USING btree (created_at);
 
 
 --
@@ -156,19 +156,19 @@ ALTER TABLE ONLY public.entries
 
 
 --
--- Name: entries entries_transaction_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: entries entries_journal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.entries
-    ADD CONSTRAINT entries_transaction_id_fkey FOREIGN KEY (transaction_id) REFERENCES public.transactions(id) ON DELETE CASCADE;
+    ADD CONSTRAINT entries_journal_id_fkey FOREIGN KEY (journal_id) REFERENCES public.journal(id) ON DELETE CASCADE;
 
 
 --
--- Name: transactions transactions_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: journal journal_account_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.transactions
-    ADD CONSTRAINT transactions_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.journal
+    ADD CONSTRAINT journal_account_id_fkey FOREIGN KEY (account_id) REFERENCES public.accounts(id) ON DELETE CASCADE;
 
 
 --

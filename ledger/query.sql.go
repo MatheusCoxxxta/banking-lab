@@ -85,22 +85,22 @@ func (q *Queries) insertAccount(ctx context.Context, arg insertAccountParams) (i
 }
 
 const insertEntry = `-- name: insertEntry :one
-INSERT INTO entries (account_id, transaction_id, direction, amount)
+INSERT INTO entries (account_id, journal_id, direction, amount)
 VALUES ($1, $2, $3, $4)
-RETURNING id, account_id, transaction_id, direction, amount, created_at
+RETURNING id, account_id, journal_id, direction, amount, created_at
 `
 
 type insertEntryParams struct {
-	AccountID     pgtype.UUID
-	TransactionID pgtype.UUID
-	Direction     string
-	Amount        int64
+	AccountID pgtype.UUID
+	JournalID pgtype.UUID
+	Direction string
+	Amount    int64
 }
 
 func (q *Queries) insertEntry(ctx context.Context, arg insertEntryParams) (Entry, error) {
 	row := q.db.QueryRow(ctx, insertEntry,
 		arg.AccountID,
-		arg.TransactionID,
+		arg.JournalID,
 		arg.Direction,
 		arg.Amount,
 	)
@@ -108,7 +108,7 @@ func (q *Queries) insertEntry(ctx context.Context, arg insertEntryParams) (Entry
 	err := row.Scan(
 		&i.ID,
 		&i.AccountID,
-		&i.TransactionID,
+		&i.JournalID,
 		&i.Direction,
 		&i.Amount,
 		&i.CreatedAt,
@@ -116,21 +116,21 @@ func (q *Queries) insertEntry(ctx context.Context, arg insertEntryParams) (Entry
 	return i, err
 }
 
-const insertTransaction = `-- name: insertTransaction :one
-INSERT INTO transactions (idempotency_key, account_id, amount)
+const insertJournal = `-- name: insertJournal :one
+INSERT INTO journal (idempotency_key, account_id, amount)
 VALUES ($1, $2, $3)
 RETURNING id, idempotency_key, account_id, amount, created_at
 `
 
-type insertTransactionParams struct {
+type insertJournalParams struct {
 	IdempotencyKey string
 	AccountID      pgtype.UUID
 	Amount         int64
 }
 
-func (q *Queries) insertTransaction(ctx context.Context, arg insertTransactionParams) (Transaction, error) {
-	row := q.db.QueryRow(ctx, insertTransaction, arg.IdempotencyKey, arg.AccountID, arg.Amount)
-	var i Transaction
+func (q *Queries) insertJournal(ctx context.Context, arg insertJournalParams) (Journal, error) {
+	row := q.db.QueryRow(ctx, insertJournal, arg.IdempotencyKey, arg.AccountID, arg.Amount)
+	var i Journal
 	err := row.Scan(
 		&i.ID,
 		&i.IdempotencyKey,
