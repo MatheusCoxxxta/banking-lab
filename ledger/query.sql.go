@@ -86,6 +86,15 @@ func (q *Queries) findOutboxByStatus(ctx context.Context, status string) ([]Outb
 	return items, nil
 }
 
+const incrementOutboxAttempt = `-- name: incrementOutboxAttempt :exec
+UPDATE outbox SET attempts = attempts + 1 WHERE id = $1
+`
+
+func (q *Queries) incrementOutboxAttempt(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, incrementOutboxAttempt, id)
+	return err
+}
+
 const insertAccount = `-- name: insertAccount :one
 INSERT INTO accounts (name, currency, balance)
 VALUES ($1, $2, $3)

@@ -33,3 +33,6 @@ SELECT * FROM outbox WHERE status = $1;
 
 -- name: updateOutboxStatus :exec
 UPDATE outbox SET status = $1, published_at = now() WHERE id = $2;
+
+-- name: incrementOutboxAttempt :exec
+UPDATE outbox SET attempts = attempts + 1 WHERE id = $1;

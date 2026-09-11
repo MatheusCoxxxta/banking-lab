@@ -16,6 +16,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/wagslane/go-rabbitmq"
 )
 
 type SendMoneyDto struct {
@@ -55,14 +56,16 @@ curl -X POST http://localhost:8000/ledger/transfer \
 */
 
 type Store struct {
-	Pool    *pgxpool.Pool
-	Queries *Queries
+	Pool      *pgxpool.Pool
+	Queries   *Queries
+	Publisher *rabbitmq.Publisher
 }
 
-func NewStore(Pool *pgxpool.Pool, Queries *Queries) *Store {
+func NewStore(Pool *pgxpool.Pool, Queries *Queries, Publisher *rabbitmq.Publisher) *Store {
 	return &Store{
-		Pool:    Pool,
-		Queries: Queries,
+		Pool:      Pool,
+		Queries:   Queries,
+		Publisher: Publisher,
 	}
 }
 
@@ -232,6 +235,28 @@ func (s *Store) OutboxObserver(ctx context.Context) error {
 
 			for _, event := range pE {
 				log.Printf("Processing pending event: %s:%s", event.ID, event.Payload)
+				incrementOutboxAttemptErr := s.Queries.incrementOutboxAttempt(ctx, event.ID)
+
+				if err != nil {
+					log.Printf("Error tyring to incrementOutboxAttemptErr: %s", incrementOutboxAttemptErr.Error())
+
+				}
+
+				s.Publisher.Publish(
+					event.Payload,
+					[]string{"balance.*"},
+					rabbitmq.WithPublishOptionsContentType("application/json"),
+				)
+
+				err = s.Queries.updateOutboxStatus(ctx, updateOutboxStatusParams{
+					ID:     event.ID,
+					Status: "sent",
+				})
+
+				if err != nil {
+					log.Printf("Error tyring to updateOutboxStatus: %s", err.Error())
+					continue
+				}
 			}
 		}
 	}
@@ -283,6 +308,12 @@ func main() {
 		return
 	}
 
+	RABBITMQ_URL := os.Getenv("RABBITMQ_URL")
+	if RABBITMQ_URL == "" {
+		log.Println("RABBITMQ_URL NOT SET BUT IT'S REQUIRED")
+		return
+	}
+
 	pool, err := pgxpool.New(context.Background(), os.Getenv("DATABASE_URL"))
 	if err != nil {
 		log.Fatal(err)
@@ -295,8 +326,32 @@ func main() {
 
 	r := chi.NewRouter()
 
+	conn, err := rabbitmq.NewConn(
+		RABBITMQ_URL,
+		rabbitmq.WithConnectionOptionsLogging,
+	)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer conn.Close()
+
+	publisher, err := rabbitmq.NewPublisher(
+		conn,
+		rabbitmq.WithPublisherOptionsLogging,
+		rabbitmq.WithPublisherOptionsExchangeName("ledger.balance"),
+		rabbitmq.WithPublisherOptionsExchangeDeclare,
+	)
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	defer publisher.Close()
+
 	q := New(pool)
-	s := NewStore(pool, q)
+	s := NewStore(pool, q, publisher)
 
 	r.Get("/health", handleHealth)
 	r.Get("/ledger/health", handleHealth)
@@ -309,5 +364,4 @@ func main() {
 	}()
 
 	log.Fatal(http.ListenAndServe(":"+PORT, r))
-
 }
