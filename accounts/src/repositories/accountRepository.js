@@ -37,12 +37,15 @@ const deactivate = async (id, executor = pool) => {
     return result.rows[0];
 };
 
-const updateBalance = async (id, direction, amount, executor = pool) => {
-    const delta = direction === "credit" ? amount : -amount;
-    await executor.query(
-        `UPDATE accounts SET balance = balance + $1 WHERE id = $2`,
-        [delta, id]
+const updateBalance = async (id, balance, version, executor = pool) => {
+    const result = await executor.query(
+        `UPDATE accounts
+         SET balance = $1, balance_version = $2, updated_at = NOW()
+         WHERE id = $3 AND balance_version < $2
+         RETURNING id, name, currency, balance, balance_version, created_at, updated_at`,
+        [balance, version, id]
     );
+    return result.rows[0];
 };
 
 module.exports = { findById, findByIdForUpdate, insert, deactivate, updateBalance };

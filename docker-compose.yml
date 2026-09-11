@@ -16,7 +16,10 @@ services:
       dockerfile: Dockerfile 
     env_file: ./accounts/.env
     depends_on:
-      - accounts-postgres
+      banking-rabbitmq:
+        condition: service_healthy
+      accounts-postgres:
+        condition: service_healthy
 
   ledger-mechanism:
     container_name: ledger-mechanism
@@ -47,6 +50,11 @@ services:
     environment:
       - POSTGRES_PASSWORD=${ACCOUNTS_DATABASE_PASSWORD}
       - POSTGRES_DB=${ACCOUNTS_DATABASE_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${ACCOUNTS_DATABASE_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   ledger-postgres:
     container_name: ledger-postgres
@@ -70,7 +78,24 @@ services:
       - POSTGRES_PASSWORD=${TRANSACTIONS_DATABASE_PASSWORD}
       - POSTGRES_DB=${TRANSACTIONS_DATABASE_NAME}
 
+  banking-rabbitmq:
+    image: rabbitmq:4-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: dev
+      RABBITMQ_DEFAULT_PASS: dev
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   transactions-postgres: {}
   accounts-postgres: {}
   ledger-postgres: {}
+  rabbitmq_data:

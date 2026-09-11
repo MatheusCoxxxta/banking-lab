@@ -1,5 +1,3 @@
-require("dotenv").config();
-
 const express = require("express");
 const { ZodError } = require("zod");
 const healthController = require("./src/controllers/healthController");
@@ -8,16 +6,16 @@ const AppError = require("./src/errors/AppError");
 const ValidationError = require("./src/errors/ValidationError");
 const InvalidAccountIdError = require("./src/errors/InvalidAccountIdError");
 
-const app = express();
+const router = express();
 
-app.use(express.json());
+router.use(express.json());
 
-app.get("/health", healthController.health);
-app.get("/accounts/health", healthController.health);
-app.post("/accounts", accountController.createAccount);
-app.patch("/accounts/:id/deactivate", accountController.deactivateAccount);
+router.get("/health", healthController.health);
+router.get("/accounts/health", healthController.health);
+router.post("/accounts", accountController.createAccount);
+router.patch("/accounts/:id/deactivate", accountController.deactivateAccount);
 
-app.use((err, req, res, next) => {
+router.use((err, req, res, next) => {
     if (err instanceof ZodError) {
         const e = new ValidationError(err);
         return res.status(e.status).json({ message: e.message, errors: e.errors });
@@ -33,6 +31,9 @@ app.use((err, req, res, next) => {
 });
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => {
+
+router.listen(port, () => {
   console.log(`Server on port ${port}`);
 });
+
+module.exports = { router }
