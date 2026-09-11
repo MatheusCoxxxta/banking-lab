@@ -17,7 +17,7 @@ Como a versão Node implementava tanto transações quanto gestão de contas, de
 
 ## Desafios sendo resolvidos:
 
-### 0001. Balance, fonte de verdade
+- 0001. Balance, fonte de verdade
 
 Nesse momento, temos um problema: tanto accounts quanto ledger lidam com `balance`, para o ledger é um dado transacional crítico, para accounts uma projeção para ser mostrada no frontend. As tabelas já têm o campo, mas os serviços ainda não se comunicam para manter esse dado eventualmente sincronizado.
 
