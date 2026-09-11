@@ -9,14 +9,15 @@ import (
 )
 
 type Account struct {
-	ID            pgtype.UUID
-	Name          string
-	Currency      string
-	Balance       int64
-	CreatedAt     pgtype.Timestamptz
-	UpdatedAt     pgtype.Timestamptz
-	DeactivatedAt pgtype.Timestamptz
-	Type          string
+	ID             pgtype.UUID
+	Name           string
+	Currency       string
+	Balance        int64
+	BalanceVersion int64
+	CreatedAt      pgtype.Timestamptz
+	UpdatedAt      pgtype.Timestamptz
+	DeactivatedAt  pgtype.Timestamptz
+	Type           string
 }
 
 type Entry struct {
@@ -34,4 +35,15 @@ type Journal struct {
 	AccountID      pgtype.UUID
 	Amount         int64
 	CreatedAt      pgtype.Timestamptz
+}
+
+type Outbox struct {
+	ID          pgtype.UUID
+	Source      string
+	SourceID    string
+	Attempts    int32
+	Status      string
+	Payload     []byte
+	PublishedAt pgtype.Timestamptz
+	CreatedAt   pgtype.Timestamptz
 }

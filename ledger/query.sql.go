@@ -12,7 +12,7 @@ import (
 )
 
 const findAccountById = `-- name: findAccountById :one
-SELECT id, name, currency, balance, created_at, updated_at, deactivated_at, type FROM accounts WHERE id = $1
+SELECT id, name, currency, balance, balance_version, created_at, updated_at, deactivated_at, type FROM accounts WHERE id = $1
 `
 
 func (q *Queries) findAccountById(ctx context.Context, id pgtype.UUID) (Account, error) {
@@ -23,6 +23,7 @@ func (q *Queries) findAccountById(ctx context.Context, id pgtype.UUID) (Account,
 		&i.Name,
 		&i.Currency,
 		&i.Balance,
+		&i.BalanceVersion,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeactivatedAt,
@@ -32,7 +33,7 @@ func (q *Queries) findAccountById(ctx context.Context, id pgtype.UUID) (Account,
 }
 
 const findAccountByIdForUpdate = `-- name: findAccountByIdForUpdate :one
-SELECT id, name, currency, balance, created_at, updated_at, deactivated_at, type FROM accounts WHERE id = $1 FOR UPDATE
+SELECT id, name, currency, balance, balance_version, created_at, updated_at, deactivated_at, type FROM accounts WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) findAccountByIdForUpdate(ctx context.Context, id pgtype.UUID) (Account, error) {
@@ -43,12 +44,46 @@ func (q *Queries) findAccountByIdForUpdate(ctx context.Context, id pgtype.UUID) 
 		&i.Name,
 		&i.Currency,
 		&i.Balance,
+		&i.BalanceVersion,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DeactivatedAt,
 		&i.Type,
 	)
 	return i, err
+}
+
+const findOutboxByStatus = `-- name: findOutboxByStatus :many
+SELECT id, source, source_id, attempts, status, payload, published_at, created_at FROM outbox WHERE status = $1
+`
+
+func (q *Queries) findOutboxByStatus(ctx context.Context, status string) ([]Outbox, error) {
+	rows, err := q.db.Query(ctx, findOutboxByStatus, status)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Outbox
+	for rows.Next() {
+		var i Outbox
+		if err := rows.Scan(
+			&i.ID,
+			&i.Source,
+			&i.SourceID,
+			&i.Attempts,
+			&i.Status,
+			&i.Payload,
+			&i.PublishedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const insertAccount = `-- name: insertAccount :one
@@ -141,8 +176,44 @@ func (q *Queries) insertJournal(ctx context.Context, arg insertJournalParams) (J
 	return i, err
 }
 
-const updateAccountBalance = `-- name: updateAccountBalance :exec
-UPDATE accounts SET balance = balance + $1 WHERE id = $2
+const insertOutbox = `-- name: insertOutbox :one
+INSERT INTO outbox (source, source_id, payload)
+VALUES ($1, $2, $3)
+RETURNING id, source, source_id, status, payload, created_at
+`
+
+type insertOutboxParams struct {
+	Source   string
+	SourceID string
+	Payload  []byte
+}
+
+type insertOutboxRow struct {
+	ID        pgtype.UUID
+	Source    string
+	SourceID  string
+	Status    string
+	Payload   []byte
+	CreatedAt pgtype.Timestamptz
+}
+
+func (q *Queries) insertOutbox(ctx context.Context, arg insertOutboxParams) (insertOutboxRow, error) {
+	row := q.db.QueryRow(ctx, insertOutbox, arg.Source, arg.SourceID, arg.Payload)
+	var i insertOutboxRow
+	err := row.Scan(
+		&i.ID,
+		&i.Source,
+		&i.SourceID,
+		&i.Status,
+		&i.Payload,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateAccountBalance = `-- name: updateAccountBalance :one
+UPDATE accounts SET balance = balance + $1, balance_version = balance_version + 1 WHERE id = $2
+RETURNING id, name, currency, balance, balance_version, created_at, updated_at, deactivated_at, type
 `
 
 type updateAccountBalanceParams struct {
@@ -150,7 +221,33 @@ type updateAccountBalanceParams struct {
 	ID      pgtype.UUID
 }
 
-func (q *Queries) updateAccountBalance(ctx context.Context, arg updateAccountBalanceParams) error {
-	_, err := q.db.Exec(ctx, updateAccountBalance, arg.Balance, arg.ID)
+func (q *Queries) updateAccountBalance(ctx context.Context, arg updateAccountBalanceParams) (Account, error) {
+	row := q.db.QueryRow(ctx, updateAccountBalance, arg.Balance, arg.ID)
+	var i Account
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Currency,
+		&i.Balance,
+		&i.BalanceVersion,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DeactivatedAt,
+		&i.Type,
+	)
+	return i, err
+}
+
+const updateOutboxStatus = `-- name: updateOutboxStatus :exec
+UPDATE outbox SET status = $1, published_at = now() WHERE id = $2
+`
+
+type updateOutboxStatusParams struct {
+	Status string
+	ID     pgtype.UUID
+}
+
+func (q *Queries) updateOutboxStatus(ctx context.Context, arg updateOutboxStatusParams) error {
+	_, err := q.db.Exec(ctx, updateOutboxStatus, arg.Status, arg.ID)
 	return err
 }

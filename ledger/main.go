@@ -147,13 +147,13 @@ func (s *Store) transferMoneyUsecase(ctx context.Context, dto SendMoneyDto) erro
 		Amount:    dto.Amount,
 	})
 
-	senderAccountErr := q.updateAccountBalance(ctx, updateAccountBalanceParams{ID: lockedSender.ID, Balance: -int64(dto.Amount)})
+	uSender, senderAccountErr := q.updateAccountBalance(ctx, updateAccountBalanceParams{ID: lockedSender.ID, Balance: -int64(dto.Amount)})
 
 	if senderAccountErr != nil {
 		log.Fatal("Error trying to insertEntry ", senderAccountErr.Error())
 	}
 
-	receiverAccountErr := q.updateAccountBalance(ctx, updateAccountBalanceParams{ID: lockedReceiver.ID, Balance: dto.Amount})
+	uReceiver, receiverAccountErr := q.updateAccountBalance(ctx, updateAccountBalanceParams{ID: lockedReceiver.ID, Balance: dto.Amount})
 
 	if receiverAccountErr != nil {
 		log.Fatal("Error trying to insertEntry ", receiverAccountErr.Error())
@@ -163,9 +163,78 @@ func (s *Store) transferMoneyUsecase(ctx context.Context, dto SendMoneyDto) erro
 		log.Fatal("Error trying to insertEntry ", errCreditEntry.Error())
 	}
 
+	senderPayload, senderPayloadErr := json.Marshal(BalanceUpdatePayload{
+		Balance:   uSender.Balance,
+		Version:   uSender.BalanceVersion,
+		AccountID: sender.ID.String(),
+	})
+
+	if senderPayloadErr != nil {
+		log.Fatal("Error trying to json.Marshal ", senderPayloadErr.Error())
+	}
+
+	_, errOutboxSender := q.insertOutbox(ctx, insertOutboxParams{
+		Source:   "accounts",
+		SourceID: sender.ID.String(),
+		Payload:  senderPayload,
+	})
+
+	if errOutboxSender != nil {
+		log.Fatal("Error trying to errOutboxSender ", errOutboxSender.Error())
+	}
+
+	receiverPayload, receiverPayloadErr := json.Marshal(BalanceUpdatePayload{
+		Balance:   uReceiver.Balance,
+		Version:   uReceiver.BalanceVersion,
+		AccountID: uReceiver.ID.String(),
+	})
+
+	if receiverPayloadErr != nil {
+		log.Fatal("Error trying to json.Marshal ", receiverPayloadErr.Error())
+	}
+
+	_, errOutboxReceiver := q.insertOutbox(ctx, insertOutboxParams{
+		Source:   "accounts",
+		SourceID: sender.ID.String(),
+		Payload:  receiverPayload,
+	})
+
+	if errOutboxReceiver != nil {
+		log.Fatal("Error trying to errOutboxReceiver ", errOutboxReceiver.Error())
+	}
+
 	tx.Commit(ctx)
 
 	return nil
+}
+
+type BalanceUpdatePayload struct {
+	Balance   int64  `json:"balance"`
+	Version   int64  `json:"version"`
+	AccountID string `json:"account_id"`
+}
+
+func (s *Store) OutboxObserver(ctx context.Context) error {
+	ticker := time.NewTicker(time.Millisecond * 100)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-ticker.C:
+			pE, err := s.Queries.findOutboxByStatus(ctx, "pending")
+
+			if err != nil {
+				log.Printf("Error processing outbox query: %s", err.Error())
+				continue
+			}
+
+			for _, event := range pE {
+				log.Printf("Processing pending event: %s:%s", event.ID, event.Payload)
+			}
+		}
+	}
 }
 
 func (s *Store) handleTransferMoney(w http.ResponseWriter, r *http.Request) {
@@ -233,5 +302,12 @@ func main() {
 	r.Get("/ledger/health", handleHealth)
 	r.Post("/ledger/transfer", s.handleTransferMoney)
 
+	go func() {
+		if err := s.OutboxObserver(context.Background()); err != nil {
+			log.Println("Starting server on :" + PORT)
+		}
+	}()
+
 	log.Fatal(http.ListenAndServe(":"+PORT, r))
+
 }

@@ -43,6 +43,7 @@ CREATE TABLE public.accounts (
     name text NOT NULL,
     currency character(3) DEFAULT 'BRL'::bpchar NOT NULL,
     balance bigint DEFAULT 0 NOT NULL,
+    balance_version bigint DEFAULT 0 NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     deactivated_at timestamp with time zone,
@@ -175,3 +176,25 @@ ALTER TABLE ONLY public.journal
 -- PostgreSQL database dump complete
 --
 
+
+
+--
+-- Name: outbox; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.outbox (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    source TEXT NOT NULL, -- accounts, journal
+    source_id TEXT NOT NULL,
+    attempts int NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending', -- pending, sent
+    payload jsonb NOT NULL,
+    published_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+--
+-- Name: idx_outbox_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_outbox_status ON public.outbox USING btree (status);
