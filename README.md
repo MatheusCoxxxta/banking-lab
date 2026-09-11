@@ -15,22 +15,15 @@ Como a versão Node implementava tanto transações quanto gestão de contas, de
 - Ledger: API de registro contábil consistente, lida com double entry e dispara evento de update-balance (outbox)
 - Statements: consultar extrato de recente e paginado, gerar extrato de longo período
 
-## Desafios sendo resolvidos:
+## Desafios resolvidos:
 
-- 0001. Balance, fonte de verdade
+### 0001. Balance, fonte de verdade
 
 Nesse momento, temos um problema: tanto accounts quanto ledger lidam com `balance`, para o ledger é um dado transacional crítico, para accounts uma projeção para ser mostrada no frontend. As tabelas já têm o campo, mas os serviços ainda não se comunicam para manter esse dado eventualmente sincronizado.
 
 Responsabilidade de cada serviço em relação ao `balance`:
 1. Accounts terá um consumer para eventos de atualização de saldo, e vai atualizar o saldo do usuário baseado nos eventos que chegam. (pronto)
 2. Ledger vai ser a fonte de verdade, e vai ter o saldo atualizado a cada transação, além de emitir eventos de atualização de saldo (em um tópico que o accounts precisa observar).
-
-- Separar transaction de ledger
-
-1. Serviço de transações, centraliza: DICT, chamada ao ledger, disparo ao BACEN (outbox).
-2. Serviço de registro contábil consistente, lida com double entry e dispara evento de update-balance (outbox)
-
-## Desafios mapeados, pensados e desenhados:
 
 ### 0002. Balance, eventos atômicos de atualização de saldo
 
@@ -47,6 +40,15 @@ Em loop: relay busca na tabela outbox/events por linhas pending.
                                              ↓
 Em transaction: dispara eventos e registra na tabela outbox/events como sent
 ```
+
+## Desafios sendo resolvidos:
+
+- Separar transaction de ledger
+
+1. Serviço de transações, centraliza: DICT, chamada ao ledger, disparo ao BACEN (outbox).
+2. Serviço de registro contábil consistente, lida com double entry e dispara evento de update-balance (outbox)
+
+## Desafios mapeados, pensados e desenhados:
 
 ## Desafios mapeados, pensados, mas ainda não desenhados:
 
