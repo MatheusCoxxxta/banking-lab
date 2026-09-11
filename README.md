@@ -1,6 +1,6 @@
 # Banking
 
-Laboratório de core banking distribuído: double-entry ledger, microserviços de contas e transações, consistência forte no ledger e projeção eventual via eventos.
+Laboratório de core banking distribuído: double-entry ledger, microserviços de contas, transações, ledger e extrato, consistência forte no ledger e projeção eventual via eventos.
 
 ## Motivação
 
@@ -11,19 +11,26 @@ Como a versão Node implementava tanto transações quanto gestão de contas, de
 ## Responsabilidade geral cada serviço:
 
 - Accounts: CRUD de contas (consulta de saldo com consistência eventual)
-- Transactions: API de transações consistentes
+- Transactions: API de transações, centraliza: DICT, chamada ao ledger, disparo ao BACEN (outbox)
+- Ledger: API de registro contábil consistente, lida com double entry e dispara evento de update-balance (outbox)
+- Statements: consultar extrato de recente e paginado, gerar extrato de longo período
+
+## Desafios sendo resolvidos:
+
+- Separar transaction de ledger
+
+API de transações, centralizada DICT, chamada ao ledger, disparo ao BACEN (outbox).
+API de registro contábil consistente, lida com double entry e dispara evento de update-balance (outbox)
 
 ## Desafios mapeados, pensados e desenhados:
 
 ### 0001. Balance, fonte de verdade
 
-Nesse momento, temos um problema: tanto accounts quanto transactions usam o mesmo banco de dados, e necessitam de `balance`, da entidade de usuário. Separar os bancos de dados não será difícil, mas exige que tomemos decisões sobre o `balance`.
-
-Decidi ir por um modelo simples de read replica orientada a eventos, onde accounts tem `balance` com consistência eventual, enquanto transactions tem `balance` com consistência forte. A ideia é que transactions seja a fonte de verdade, é onde dinheiro realmente circula, e accounts apenas uma projeção eventual, usado para consultas rápidas e ações de front-end (impossibilitar o início de uma transferência sem saldo, por exemplo). 
+Nesse momento, temos um problema: tanto accounts quanto ledger lidam com `balance`, para o ledger é um dado transacional crítico, para accounts uma projeção para ser mostrada no frontend. As tabelas já têm o campo, mas os serviços ainda não se comunicam para manter esse dado eventualmente sincronizado.
 
 Responsabilidade de cada serviço em relação ao `balance`:
 1. Accounts terá um consumer para eventos de atualização de saldo, e vai atualizar o saldo do usuário baseado nos eventos que chegam.
-2. Transactions vai ser a fonte de verdade, e vai ter o saldo atualizado a cada transação, além de emitir eventos de atualização de saldo.
+2. Ledger vai ser a fonte de verdade, e vai ter o saldo atualizado a cada transação, além de emitir eventos de atualização de saldo (em um tópico que o accounts precisa observar).
 
 ### 0002. Balance, eventos atômicos de atualização de saldo
 
@@ -43,9 +50,7 @@ Em transaction: dispara eventos e registra na tabela outbox/events como sent
 
 ## Desafios mapeados, pensados, mas ainda não desenhados:
 
-- Separar transaction de ledger
-
-- Criar servico de extrato
+- Criar serviço de extrato
 
 - Adicionar SOT de limit ao ledger
 
