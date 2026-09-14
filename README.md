@@ -1,11 +1,13 @@
 # Banking
-
 Laboratório de core banking distribuído: double-entry ledger, microserviços de contas, transações, ledger e extrato, consistência forte no ledger e projeção eventual via eventos.
 
 ## Motivação
+Visando em cobrir um gap que tenho com sistemas financeiros e movimentação de dinheiro, desenvolvi um core bancário distribuído visando escalabilidade organizacional. Separar em microsserviços era apenas o início, e trivial em relação aos outros problemas que teríamos a resolver: decidir hierarquia de ownership sobre os dados e lidar com ela, e desenhar o desacoplamento com componentes que necessitavam consistência forte e componentes que podiam lidar com consistência eventual. 
 
+Este projeto simula múltiplos times sustentando um core banking, cada um com necessidades e preocupações distintas. Por isso usei Go e Node: Node acelera os CRUDs e endpoints user-facing, além de cuidar da formatação e escrita de extrato em PDF e XLSX; Go cobre o caminho do dinheiro, por dar concorrência mais previsível, tipagem forte consolidada e uma standard lib rica.
+
+## Disclaimer
 Peguei tudo que fiz no ledger-lab Node e no ledger-lab Go, centralizei aqui, e vou usar para dar uma aprofundada.
-
 Como a versão Node implementava tanto transações quanto gestão de contas, descontinuei transações, que reescrevi em Go.
 
 ## Responsabilidade geral cada serviço:
@@ -15,7 +17,14 @@ Como a versão Node implementava tanto transações quanto gestão de contas, de
 - Ledger: API de registro contábil consistente, lida com double entry e dispara evento de update-balance (outbox)
 - Statements: consultar extrato de recente e paginado, gerar extrato de longo período
 
-## Desafios resolvidos:
+## Projeto em desenvolvimento,desafios sendo resolvidos:
+
+- Separar transaction de ledger
+
+1. Serviço de transações, centraliza: DICT, chamada ao ledger, disparo ao BACEN (outbox).
+2. Serviço de registro contábil consistente, lida com double entry e dispara evento de update-balance (outbox)
+
+## Desafios resolvidos anteriormente:
 
 ### 0001. Balance, fonte de verdade
 
@@ -40,13 +49,6 @@ Em loop: relay busca na tabela outbox/events por linhas pending.
                                              ↓
 Em transaction: dispara eventos e registra na tabela outbox/events como sent
 ```
-
-## Desafios sendo resolvidos:
-
-- Separar transaction de ledger
-
-1. Serviço de transações, centraliza: DICT, chamada ao ledger, disparo ao BACEN (outbox).
-2. Serviço de registro contábil consistente, lida com double entry e dispara evento de update-balance (outbox)
 
 ## Desafios mapeados, pensados e desenhados:
 
