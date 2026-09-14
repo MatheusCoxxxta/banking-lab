@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -39,16 +38,16 @@ func (s *Store) transferMoneyUsecase(ctx context.Context, dto SendMoneyDto) erro
 		if errors.Is(err, pgx.ErrNoRows) {
 			return SenderNotFoundError
 		}
-		log.Fatal("Error trying to get sender ", err.Error())
+		return err
 	}
 
 	_, err = s.Queries.findAccountById(ctx, pgtype.UUID{Bytes: dto.ReceiverId, Valid: true})
 
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return SenderNotFoundError
+			return ReceiverNotFoundError
 		}
-		log.Fatal("Error trying to get sender ", err.Error())
+		return err
 	}
 
 	if sender.Balance < 0 || dto.Amount > sender.Balance {
@@ -57,7 +56,7 @@ func (s *Store) transferMoneyUsecase(ctx context.Context, dto SendMoneyDto) erro
 
 	tx, err := s.Pool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
-		log.Fatal("Error trying to get sender ", err.Error())
+		return err
 	}
 
 	defer tx.Rollback(ctx)
@@ -70,15 +69,15 @@ func (s *Store) transferMoneyUsecase(ctx context.Context, dto SendMoneyDto) erro
 		if errors.Is(errSender, pgx.ErrNoRows) {
 			return SenderNotFoundError
 		}
-		log.Fatal("Error trying to findAccountByIdForUpdate ", errSender.Error())
+		return errSender
 	}
 
 	lockedReceiver, errReceiver := q.findAccountByIdForUpdate(ctx, pgtype.UUID{Bytes: dto.ReceiverId, Valid: true})
 	if errReceiver != nil {
 		if errors.Is(errReceiver, pgx.ErrNoRows) {
-			return SenderNotFoundError
+			return ReceiverNotFoundError
 		}
-		log.Fatal("Error trying to findAccountByIdForUpdate ", err.Error())
+		return errReceiver
 	}
 
 	if lockedSender.Balance < 0 || dto.Amount > lockedSender.Balance {
@@ -92,7 +91,7 @@ func (s *Store) transferMoneyUsecase(ctx context.Context, dto SendMoneyDto) erro
 	})
 
 	if errJournal != nil {
-		log.Fatal("Error trying to insertJournal ", errJournal.Error())
+		return errJournal
 	}
 
 	_, errDebitEntry := q.insertEntry(ctx, insertEntryParams{
@@ -103,7 +102,7 @@ func (s *Store) transferMoneyUsecase(ctx context.Context, dto SendMoneyDto) erro
 	})
 
 	if errDebitEntry != nil {
-		log.Fatal("Error trying to insertEntry ", errDebitEntry.Error())
+		return errDebitEntry
 	}
 
 	_, errCreditEntry := q.insertEntry(ctx, insertEntryParams{
@@ -113,20 +112,20 @@ func (s *Store) transferMoneyUsecase(ctx context.Context, dto SendMoneyDto) erro
 		Amount:    dto.Amount,
 	})
 
+	if errCreditEntry != nil {
+		return errCreditEntry
+	}
+
 	uSender, senderAccountErr := q.updateAccountBalance(ctx, updateAccountBalanceParams{ID: lockedSender.ID, Balance: -int64(dto.Amount)})
 
 	if senderAccountErr != nil {
-		log.Fatal("Error trying to insertEntry ", senderAccountErr.Error())
+		return senderAccountErr
 	}
 
 	uReceiver, receiverAccountErr := q.updateAccountBalance(ctx, updateAccountBalanceParams{ID: lockedReceiver.ID, Balance: dto.Amount})
 
 	if receiverAccountErr != nil {
-		log.Fatal("Error trying to insertEntry ", receiverAccountErr.Error())
-	}
-
-	if errCreditEntry != nil {
-		log.Fatal("Error trying to insertEntry ", errCreditEntry.Error())
+		return receiverAccountErr
 	}
 
 	senderPayload, senderPayloadErr := json.Marshal(BalanceUpdatePayload{
@@ -136,7 +135,7 @@ func (s *Store) transferMoneyUsecase(ctx context.Context, dto SendMoneyDto) erro
 	})
 
 	if senderPayloadErr != nil {
-		log.Fatal("Error trying to json.Marshal ", senderPayloadErr.Error())
+		return senderPayloadErr
 	}
 
 	_, errOutboxSender := q.insertOutbox(ctx, insertOutboxParams{
@@ -146,7 +145,7 @@ func (s *Store) transferMoneyUsecase(ctx context.Context, dto SendMoneyDto) erro
 	})
 
 	if errOutboxSender != nil {
-		log.Fatal("Error trying to errOutboxSender ", errOutboxSender.Error())
+		return errOutboxSender
 	}
 
 	receiverPayload, receiverPayloadErr := json.Marshal(BalanceUpdatePayload{
@@ -156,20 +155,22 @@ func (s *Store) transferMoneyUsecase(ctx context.Context, dto SendMoneyDto) erro
 	})
 
 	if receiverPayloadErr != nil {
-		log.Fatal("Error trying to json.Marshal ", receiverPayloadErr.Error())
+		return receiverPayloadErr
 	}
 
 	_, errOutboxReceiver := q.insertOutbox(ctx, insertOutboxParams{
 		Source:   "accounts",
-		SourceID: sender.ID.String(),
+		SourceID: uReceiver.ID.String(),
 		Payload:  receiverPayload,
 	})
 
 	if errOutboxReceiver != nil {
-		log.Fatal("Error trying to errOutboxReceiver ", errOutboxReceiver.Error())
+		return errOutboxReceiver
 	}
 
-	tx.Commit(ctx)
+	if errCommit := tx.Commit(ctx); errCommit != nil {
+		return errCommit
+	}
 
 	return nil
 }
