@@ -17,7 +17,7 @@ Como a versão Node implementava tanto transações quanto gestão de contas, de
 - Ledger: API de registro contábil consistente, lida com double entry e dispara evento de update-balance (outbox)
 - Statements: consultar extrato de recente e paginado, gerar extrato de longo período
 
-## Projeto em desenvolvimento,desafios sendo resolvidos:
+## Projeto em desenvolvimento, desafios sendo resolvidos:
 
 - Separar transaction de ledger
 
