@@ -29,6 +29,7 @@ services:
     environment:
       DATABASE_URL: postgres://postgres:postgres@ledger-postgres:5432/ledger_db
       RABBITMQ_URL: amqp://dev:dev@banking-rabbitmq:5672
+      PORT: 3002
     depends_on:
       banking-rabbitmq:
         condition: service_healthy

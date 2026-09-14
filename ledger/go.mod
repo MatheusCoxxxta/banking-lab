@@ -1,4 +1,4 @@
-module github.com/MatheusCoxxxta/ledger-lab-go
+module github.com/MatheusCoxxxta/banking-lab/ledger
 
 go 1.26.0
 
