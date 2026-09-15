@@ -17,7 +17,7 @@ jobs:
       - name: SSH
         env:
           KEY: ${{ secrets.ACC_VPS_SSH_KEY }}
-          KNOWN: ${{ secrets.  }}
+          KNOWN: ${{ secrets.ACC_VPS_KNOWN_HOSTS }}
         run: |
           install -m 700 -d ~/.ssh
           printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
