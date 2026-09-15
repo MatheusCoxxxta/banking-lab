@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS accounts (
     balance     NUMERIC(20, 2) NOT NULL DEFAULT 0,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    type        TEXT NOT NULL, -- PJ, PF, ST
+    type        TEXT NOT NULL DEFAULT 'PF', -- PJ, PF, ST
     user_id    UUID
 );
 
