@@ -30,4 +30,4 @@ jobs:
           PG_PASSWORD: ${{ secrets.ACC_PG_PASSWORD }}
         run: |
           # stdin: primeira linha = senha do banco
-          printf '%s\n' "$ACC_PG_PASSWORD" | ssh "deployer@$VPS" db
+          printf '%s\n' "$PG_PASSWORD" | ssh "deployer@$VPS" db
