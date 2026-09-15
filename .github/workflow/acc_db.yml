@@ -1,0 +1,33 @@
+name: account db
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vps-db
+  cancel-in-progress: false
+
+jobs:
+  db:
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH
+        env:
+          KEY: ${{ secrets.ACC_VPS_SSH_KEY }}
+          KNOWN: ${{ secrets.  }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN" > ~/.ssh/known_hosts
+
+      - name: Provisiona role + database
+        env:
+          VPS: ${{ secrets.VPS_HOST }}
+          PG_PASSWORD: ${{ secrets.ACC_PG_PASSWORD }}
+        run: |
+          # stdin: primeira linha = senha do banco
+          printf '%s\n' "$ACC_PG_PASSWORD" | ssh "deployer@$VPS" db
