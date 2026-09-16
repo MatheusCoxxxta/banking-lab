@@ -2,8 +2,6 @@
 # Tudo age no container do projeto (fixado pela chave SSH) — sem argumento de nome.
 #   ps     -> status + uso de CPU/memória
 #   logs   -> últimas linhas do container
-#   rm     -> remove o container (banco preservado)
-#   purge  -> remove o container E apaga o banco (role + database)!
 name: ops
 
 on:
@@ -11,7 +9,7 @@ on:
     inputs:
       cmd:
         type: choice
-        options: [ps, logs, rm, purge]
+        options: [ps, logs]
         default: ps
 
 permissions:
