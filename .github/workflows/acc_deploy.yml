@@ -17,7 +17,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PORT: "3001"      # deve bater com o PORT dentro de ACC_APP_ENV (porta que o app escuta)
+  PROJETO: "bankacc"   # nome do projeto = subdomínio (fixado na chave SSH pelo mentor)
+  PORT: "3001"         # porta que o app escuta dentro do container
 
 jobs:
   deploy:
@@ -59,11 +60,19 @@ jobs:
       - name: Deploy
         env:
           VPS: ${{ secrets.VPS_HOST }}
-          APP_ENV: ${{ secrets.ACC_APP_ENV }}
           GH_USER: ${{ github.actor }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # única env sensível do app; as demais são fixas (host/porta) ou = nome do projeto
+          DATABASE_PASSWORD: ${{ secrets.ACC_DATABASE_PASSWORD }}
         run: |
-          # stdin: usuário, token do GHCR (só para o pull) e o .env do app.
-          # O projeto (subdomínio) é fixado pela chave SSH, não vai no comando.
-          { printf '%s\n%s\n' "$GH_USER" "$GH_TOKEN"; printf '%s\n' "$APP_ENV"; } \
-            | ssh "deployer@$VPS" deploy "$IMAGE" "$PORT"
+          # Monta o .env do container a partir de valores fixos + secrets.
+          # stdin: linha1=usuário GHCR, linha2=token GHCR, resto=KEY=VALUE do app.
+          {
+            printf '%s\n%s\n' "$GH_USER" "$GH_TOKEN"
+            printf 'DATABASE_HOST=%s\n'     'db'
+            printf 'DATABASE_PORT=%s\n'     '5432'
+            printf 'DATABASE_USER=%s\n'     "$PROJETO"
+            printf 'DATABASE_NAME=%s\n'     "$PROJETO"
+            printf 'DATABASE_PASSWORD=%s\n' "$DATABASE_PASSWORD"
+            printf 'PORT=%s\n'              "$PORT"
+          } | ssh "deployer@$VPS" deploy "$IMAGE" "$PORT"
