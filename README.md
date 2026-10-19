@@ -19,10 +19,75 @@ Como a versão Node implementava tanto transações quanto gestão de contas, de
 
 ## Projeto em desenvolvimento, desafios sendo resolvidos:
 
-- Separar transaction de ledger
+- 0006 - Antifraude
 
-1. Serviço de transações, centraliza: DICT, chamada ao ledger, disparo ao BACEN (outbox).
-2. Serviço de registro contábil consistente, lida com double entry e dispara evento de update-balance (outbox)
+Para compor a SAGA da transferência teremos algumas etapas: resolução de DICT, checagem de risco, postar no ledger, enviar SPI e confirmação da transação no BACEN. O ledger está pronto, iremos partir para o antifraude.
+
+Responsabilidade: validar risco de uma operação
+
+Regras:
+
+HARD (DENY direto):
+- destino marcado como fraude no DICT
+- conta origem bloqueada ou desativada
+- valor > limite noturno.
+
+SOFT (geram score)
+- destino nunca usado + valor alto
++15 pts
+
+- velocity: N transações por janela de X min pela mesma origem
+alta (≥ 3 tx em 10min): +15 pts
+muito alta (≥ 6 tx em 10min): +35 pts
+ 
+- conta criada há < 24h
++25 pts
+
+- valor fora do padrão da conta
+valor atípico (> 3× ticket médio 30 dias): +20 pts
+valor muito atípico (> 10× ticket médio 30 dias): +40 pts
+
+Corte:
+- Review: 40 <= score < 70
+- Deny: score >= 70
+
+Desenvolvimento: receber `POST /evaluate { tx_id, origin_account, dest_key/account, amount, channel, created_at }`, usar tabela risk_evaluations como fonte de verdade para as feature/regras, gravar log das decisões em risk_evaluations e ao fim retornar `{"decision": "REVIEW", "score": 55, "rule_version": "v1", "reasons": ["DEST_NEW:+15", "AMOUNT_3X_AVG:+20", "ACCOUNT_NEW:+25"] `
+
+tabela risk_evaluations
+    tx_id (unique), origin_account, dest_key, amount, channel,
+    decision, rule_version, features_snapshot jsonb, created_at
+
+
+Podemos traduzir rules a um json, então tabela de rules com version, thresholds (jsonb), rules (jsonb) deve resolver, e podemos ter indice pelo version.
+
+```
+  {
+    "version": "v1",
+    "thresholds": { "review": 40, "deny": 70 },
+    "hard_rules": {
+      "DEST_FLAGGED_DICT": { "enabled": true },
+      "ORIGIN_BLOCKED":    { "enabled": true },
+      "NIGHT_LIMIT":       { 
+            "enabled": true,
+            "start": "22:00",
+            "end": "06:00",
+            "max_amount": 100000
+        }
+    },
+    "rules": {
+      "DEST_NEW":    { "points": 15, "min_amount": 50000 },
+      "ACCOUNT_NEW": { "points": 25, "max_age_hours": 24 },
+      "VELOCITY": {
+        "window_minutes": 10,
+        "tiers": [ { "min_tx": 6, "points": 35 }, { "min_tx": 3, "points": 15 } ]
+      },
+      "AMOUNT_ATYPICAL": {
+        "avg_window_days": 30,
+        "tiers": [ { "multiplier": 10, "points": 40 }, { "multiplier": 3, "points": 20 } ]
+      }
+    }
+  }
+```
 
 ## Desafios resolvidos anteriormente:
 
@@ -50,6 +115,11 @@ Em loop: relay busca na tabela outbox/events por linhas pending.
 Em transaction: dispara eventos e registra na tabela outbox/events como sent
 ```
 
+### 0003 Separar transaction de ledger
+
+1. Serviço de transações, centraliza: DICT, chamada ao ledger, disparo ao BACEN (outbox).
+2. Serviço de registro contábil consistente, lida com double entry e dispara evento de update-balance (outbox)
+
 ## Desafios mapeados, pensados e desenhados:
 
 ## Desafios mapeados, pensados, mas ainda não desenhados:
@@ -62,7 +132,7 @@ Em transaction: dispara eventos e registra na tabela outbox/events como sent
 
 Para esse caso, provavelmente usaremos conta de settlement, que vai ser a perna de débito da nossa operação, mantendo soma zero nas entries. Saldo da conta de settlement vai ser negativo, permitindo conciliar a quantidade de dinheiro que saiu da conta de settlement.
 
-### 0003. Consumer para receive, receberá comunicações do BACEN
+### 0004. Consumer para receive, receberá comunicações do BACEN
 
 Consumiremos as mensagens enviadas pelo BACEN comunicando recebimento de PIX.
 
@@ -77,7 +147,7 @@ Não entendo muito dessa parte do BACEN, então gerei um passo a passo com Claud
 - SPI comunica pacs.002
 - Double entry + evento update saldo
 
-### 0004. API /send, lidar com transações interbancos (SPI BACEN)
+### 0005. API /send, lidar com transações interbancos (SPI BACEN)
 
 - Double entry atômico + evento update saldo como temos em POST /money/transfer, seguido de mensagem para BACEN.
 
