@@ -8,6 +8,7 @@ services:
     depends_on:
       - account-manager
       - ledger-mechanism
+      - antifraud-engine
 
   account-manager:
     container_name: account-manager
@@ -44,6 +45,18 @@ services:
     env_file: ./transactions/.env
     depends_on:
       - transactions-postgres
+
+  antifraud-engine:
+    container_name: antifraud-engine
+    build:
+      context: ./antifraud
+      dockerfile: Dockerfile
+    env_file: ./antifraud/.env
+    depends_on:
+      banking-rabbitmq:
+        condition: service_healthy
+      antifraud-postgres:
+        condition: service_healthy
 
   accounts-postgres:
     container_name: accounts-postgres
@@ -88,6 +101,22 @@ services:
       - POSTGRES_PASSWORD=${TRANSACTIONS_DATABASE_PASSWORD}
       - POSTGRES_DB=${TRANSACTIONS_DATABASE_NAME}
 
+  antifraud-postgres:
+    container_name: antifraud-postgres
+    image: postgres:16
+    ports:
+      - '${ANTIFRAUD_DATABASE_PORT}:5432'
+    volumes:
+      - antifraud-postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=${ANTIFRAUD_DATABASE_PASSWORD}
+      - POSTGRES_DB=${ANTIFRAUD_DATABASE_NAME}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${ANTIFRAUD_DATABASE_NAME}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   banking-rabbitmq:
     image: rabbitmq:4-management-alpine
     ports:
@@ -108,4 +137,5 @@ volumes:
   transactions-postgres: {}
   accounts-postgres: {}
   ledger-postgres: {}
+  antifraud-postgres: {}
   rabbitmq_data:
