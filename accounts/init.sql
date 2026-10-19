@@ -16,3 +16,15 @@ ALTER TABLE accounts
 
 ALTER TABLE accounts
     ADD COLUMN IF NOT EXISTS balance_version BIGINT NOT NULL DEFAULT 0;
+CREATE TABLE IF NOT EXISTS outbox (
+    id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    source        TEXT NOT NULL, -- accounts
+    source_id     TEXT NOT NULL,
+    attempts      INT NOT NULL DEFAULT 0,
+    status        TEXT NOT NULL DEFAULT 'pending', -- pending, sent
+    payload       JSONB NOT NULL,
+    published_at  TIMESTAMPTZ,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_outbox_status ON outbox (status);

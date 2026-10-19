@@ -3,6 +3,7 @@ require("./server")
 
 const amqp = require('amqplib');
 const { updateAccountBalance } = require("./src/usecases/updateAccountBalance");
+const { outboxRelay } = require("./src/outboxRelay");
 
 async function amqpConsumer() {
 
@@ -11,9 +12,19 @@ async function amqpConsumer() {
 
     const exchange = 'ledger.balance';
     const queue = 'accounts.balance-projection';
+    const dlx = 'accounts.dlx';
+    const dlq = `${queue}.dlq`;
+
+    // nack sem requeue cai na DLQ; sem consumer, fica retida pra inspeção
+    await ch.assertExchange(dlx, 'direct', { durable: true });
+    await ch.assertQueue(dlq, { durable: true });
+    await ch.bindQueue(dlq, dlx, queue);
 
     await ch.assertExchange(exchange, 'topic', { durable: true });
-    await ch.assertQueue(queue, { durable: true });
+    await ch.assertQueue(queue, {
+        durable: true,
+        arguments: { 'x-dead-letter-exchange': dlx, 'x-dead-letter-routing-key': queue },
+    });
     await ch.bindQueue(queue, exchange, 'balance.*');
 
     await ch.consume(queue, async (msg) => {
@@ -32,6 +43,7 @@ async function amqpConsumer() {
 
 async function run () {
     await amqpConsumer();
+    await outboxRelay();
 }
 
 run().then((r) => console.log(r)).catch(e => console.log(e));
