@@ -16,6 +16,7 @@ Como a versão Node implementava tanto transações quanto gestão de contas, de
 - Transactions: API de transações, centraliza: DICT, chamada ao ledger, disparo ao BACEN (outbox)
 - Ledger: API de registro contábil consistente, lida com double entry e dispara evento de update-balance (outbox)
 - Statements: consultar extrato de recente e paginado, gerar extrato de longo período
+- Antifraud: avaliar risco de uma transação baseado em critérios históricos e limites
 
 ## Projeto em desenvolvimento, desafios sendo resolvidos:
 
